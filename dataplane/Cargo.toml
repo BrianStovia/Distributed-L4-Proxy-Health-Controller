@@ -1,0 +1,17 @@
+[package]
+name = "dataplane"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.38", features = ["full"] }
+tonic = "0.12"
+prost = "0.13"
+futures-util = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+anyhow = "1.0"
+
+[build-dependencies]
+tonic-build = "0.12"

@@ -1,0 +1,25 @@
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+
+# Rust build artifacts
+target/
+Cargo.lock
+
+# Go build artifacts
+controlplane/bin/
+tools/mock_backend/mock_backend.exe
+
+# IDE and Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package proxy.control.v1;
+
+option go_package = "github.com/arcgg/controlplane/pkg/api/v1;apiv1";
+
+// Coordination service between Control Plane (Go) and Data Plane (Rust).
+service ProxyControlService {
+  // Data Plane (Rust) subscribes to dynamic backend updates from Control Plane (Go).
+  // Control Plane pushes the latest snapshot whenever a target node fails, recovers, or changes state.
+  rpc WatchClusterConfig(WatchConfigRequest) returns (stream ClusterConfigSnapshot);
+
+  // Data Plane (Rust) periodically reports connection and traffic telemetry to Control Plane (Go).
+  rpc ReportMetrics(stream MetricBatch) returns (MetricAck);
+}
+
+// Subscription request from Data Plane to Control Plane.
+message WatchConfigRequest {
+  string proxy_node_id = 1;
+  string current_version = 2;
+}
+
+// Supported traffic balancing algorithms.
+enum BalancingAlgorithm {
+  BALANCING_ALGORITHM_UNSPECIFIED = 0;
+  BALANCING_ALGORITHM_ROUND_ROBIN = 1;
+  BALANCING_ALGORITHM_LEAST_CONN = 2;
+  BALANCING_ALGORITHM_CONSISTENT_HASH = 3;
+}
+
+// Operational state of an individual backend target.
+enum BackendState {
+  BACKEND_STATE_UNSPECIFIED = 0;
+  BACKEND_STATE_HEALTHY = 1;
+  BACKEND_STATE_UNHEALTHY = 2;
+  BACKEND_STATE_DRAINING = 3; // Refuse new connections, drain existing active traffic
+}
+
+// Backend server target definition.
+message BackendTarget {
+  string id = 1;
+  string address = 2; // host:port format, e.g., "127.0.0.1:8081"
+  uint32 weight = 3;
+  BackendState state = 4;
+}
+
+// Complete cluster snapshot pushed to the Data Plane.
+message ClusterConfigSnapshot {
+  string version = 1;
+  int64 timestamp_unix_epoch_ms = 2;
+  BalancingAlgorithm algorithm = 3;
+  repeated BackendTarget backends = 4;
+}
+
+// Connection telemetry per backend target.
+message BackendMetric {
+  string backend_id = 1;
+  uint64 active_connections = 2;
+  uint64 total_connections_handled = 3;
+  uint64 bytes_rx = 4;
+  uint64 bytes_tx = 5;
+  uint64 connect_errors = 6;
+}
+
+// Periodic metric telemetry batch.
+message MetricBatch {
+  string proxy_node_id = 1;
+  int64 timestamp_unix_epoch_ms = 2;
+  repeated BackendMetric metrics = 3;
+}
+
+// Telemetry ingestion acknowledgement from Control Plane.
+message MetricAck {
+  bool accepted = 1;
+  string message = 2;
+}

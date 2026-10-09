@@ -1,0 +1,93 @@
+services:
+  backend-1:
+    build:
+      context: .
+      dockerfile: tools/mock_backend/Dockerfile
+    environment:
+      - PORT=9001
+      - BACKEND_ID=backend-alpha
+    networks:
+      - cluster_net
+
+  backend-2:
+    build:
+      context: .
+      dockerfile: tools/mock_backend/Dockerfile
+    environment:
+      - PORT=9002
+      - BACKEND_ID=backend-beta
+    networks:
+      - cluster_net
+
+  backend-3:
+    build:
+      context: .
+      dockerfile: tools/mock_backend/Dockerfile
+    environment:
+      - PORT=9003
+      - BACKEND_ID=backend-gamma
+    networks:
+      - cluster_net
+
+  controlplane:
+    build:
+      context: .
+      dockerfile: controlplane/Dockerfile
+    environment:
+      - GRPC_PORT=50051
+      - METRICS_PORT=9090
+      - BACKEND_TARGETS=backend-1:9001,backend-2:9002,backend-3:9003
+    ports:
+      - "50051:50051"
+      - "9090:9090"
+    depends_on:
+      - backend-1
+      - backend-2
+      - backend-3
+    networks:
+      - cluster_net
+
+  dataplane:
+    build:
+      context: .
+      dockerfile: dataplane/Dockerfile
+    environment:
+      - PROXY_LISTEN_ADDR=0.0.0.0:8080
+      - CONTROLLER_ADDR=http://controlplane:50051
+      - PROXY_NODE_ID=node-docker-edge-01
+    ports:
+      - "8080:8080"
+    depends_on:
+      - controlplane
+    networks:
+      - cluster_net
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9091:9090"
+    depends_on:
+      - controlplane
+    networks:
+      - cluster_net
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - cluster_net
+
+networks:
+  cluster_net:
+    driver: bridge
